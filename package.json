@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/ssr": "github:supabase/ssr",
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.89.0",
     "and": "^0.0.3",
     "jspdf": "^3.0.4",
