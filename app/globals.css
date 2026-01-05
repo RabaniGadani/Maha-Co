@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* white */
+    --foreground: 222.2 47.4% 11.2%; /* dark gray */
+
+    --primary: 222.2 47.4% 11.2%; /* same as foreground */
+    --primary-foreground: 210 40% 98%; /* off-white */
+
+    --secondary: 210 40% 96.1%; /* light gray */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* dark gray */
+
+    --accent: 217.2 91.2% 59.8%; /* blue */
+    --accent-foreground: 210 40% 98%; /* off-white */
+    
+    --muted: 210 40% 96.1%; /* light gray */
+    --muted-foreground: 215 15% 45%; /* medium gray */
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 224 71% 4%;
+      --foreground: 210 40% 98%;
+
+      --primary: 210 40% 98%;
+      --primary-foreground: 224 71% 4%;
+
+      --secondary: 224 30% 15%;
+      --secondary-foreground: 210 40% 98%;
+
+      --accent: 200 98% 50%;
+      --accent-foreground: 224 71% 4%;
+      
+      --muted: 224 30% 15%;
+      --muted-foreground: 215 20% 65%;
+    }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
