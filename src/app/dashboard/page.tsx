@@ -26,12 +26,7 @@ type Product = {
   totalSell: number;
   totalProfit: number;
   created_at?: string;
-  opening_balance?: number;
-  today_purchases?: number;
-  today_sales?: number;
-  closing_balance?: number;
-  is_balance_row?: boolean;
-  type?: "sale" | "opening";
+
 };
 
 interface DeleteDialogState {
