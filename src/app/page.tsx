@@ -17,7 +17,7 @@ export default function LandingPage() {
 
           {/* Title */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
-            Maha LPG & Co
+             Hamood LPG & Co
           </h1>
 
           {/* Subtitle */}
