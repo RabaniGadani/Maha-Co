@@ -14,7 +14,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
 type Product = {
   id: string;
   name: string;
@@ -26,8 +25,8 @@ type Product = {
   totalSell: number;
   totalProfit: number;
   created_at?: string;
-
 };
+
 
 interface DeleteDialogState {
   productId: string | null;
