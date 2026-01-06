@@ -27,7 +27,7 @@ type Product = {
   totalSell: number;
   totalProfit: number;
   created_at?: string;
-
+  // No balance fields
 };
 
 interface DeleteDialogState {
@@ -90,12 +90,14 @@ function DeleteProductModal({
   );
 }
 
+// Balance row check removed: now always returns false
 function isBalanceProductRow(p: Product) {
-  return !!(p.is_balance_row || p.name === "BALANCE" || p.name === "Balance" || p.name === "Daily Balance" || (typeof p.name === "string" && p.name.endsWith(" Balance")));
+  return false;
 }
 
+// Opening row check removed: now always returns false as all records are sales
 function isOpeningRow(p: Product) {
-  return p.type === "opening";
+  return false;
 }
 
 // ------ LPG/PKR Bidirectional Conversion Calculator ---------
@@ -331,7 +333,7 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
 
 export default function ProductAndRateLists() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [form, setForm] = useState<Omit<Product, "id" | "totalBuy" | "totalSell" | "totalProfit" | "created_at" | "opening_balance" | "today_purchases" | "today_sales" | "closing_balance" | "is_balance_row" | "type">>({
+  const [form, setForm] = useState<Omit<Product, "id" | "totalBuy" | "totalSell" | "totalProfit" | "created_at">>({
     name: "",
     buyPrice: 0,
     sellPrice: 0,
@@ -366,17 +368,16 @@ export default function ProductAndRateLists() {
   function groupProductsByNameRows(rows: Product[]) {
     const map: { [key: string]: Product[] } = {};
     for (const row of rows) {
-      if (!isBalanceProductRow(row)) {
-        if (!map[row.name]) map[row.name] = [];
-        map[row.name].push(row);
-      }
+      // No balance rows to skip
+      if (!map[row.name]) map[row.name] = [];
+      map[row.name].push(row);
     }
     return map;
   }
 
   useEffect(() => {
     let ignore = false;
-    async function loadProductsAndBalances() {
+    async function loadProducts() {
       setLoading(true);
       setError(null);
       try {
@@ -395,58 +396,21 @@ export default function ProductAndRateLists() {
           toast.error("Error loading products: " + fetchError.message);
         }
 
-        // Build map of just product sale and opening rows
-        const productRows: Product[] = (data || []).map((row: any) => {
-          let type: "sale" | "opening" = "sale";
-          if (
-            row.type === "opening" ||
-            (
-              row.sellPrice === 0 &&
-              row.buyPrice === 0 &&
-              (row.opening_balance !== undefined && row.opening_balance !== null)
-            )
-          ) {
-            type = "opening";
-          }
-          return {
-            id: row.id ? String(row.id) : Date.now().toString() + "_" + Math.random(),
-            name: row.name ?? "",
-            buyPrice: Number(row.buyPrice) || 0,
-            sellPrice: Number(row.sellPrice) || 0,
-            quantity: Number(row.quantity) || 0,
-            date: row.date ? String(row.date) : "",
-            totalBuy: Number(row.totalBuy) || 0,
-            totalSell: Number(row.totalSell) || 0,
-            totalProfit: Number(row.totalProfit) || 0,
-            created_at: row.created_at ? String(row.created_at) : undefined,
-            opening_balance: row.opening_balance !== null ? Number(row.opening_balance) : undefined,
-            today_purchases: Number(row.today_purchases) || 0,
-            today_sales: Number(row.today_sales) || 0,
-            closing_balance: Number(row.closing_balance) || 0,
-            is_balance_row: !!row.is_balance_row,
-            type,
-          }
-        });
+        // Just map sale rows
+        const productRows: Product[] = (data || []).map((row: any) => ({
+          id: row.id ? String(row.id) : Date.now().toString() + "_" + Math.random(),
+          name: row.name ?? "",
+          buyPrice: Number(row.buyPrice) || 0,
+          sellPrice: Number(row.sellPrice) || 0,
+          quantity: Number(row.quantity) || 0,
+          date: row.date ? String(row.date) : "",
+          totalBuy: Number(row.totalBuy) || 0,
+          totalSell: Number(row.totalSell) || 0,
+          totalProfit: Number(row.totalProfit) || 0,
+          created_at: row.created_at ? String(row.created_at) : undefined,
+        }));
 
-        // Group by product name (exclude balance rows)
-        const productMap = groupProductsByNameRows(productRows);
-
-        let allRows: Product[] = [];
-
-        const allProductNames = Object.keys(productMap);
-
-        for (const prodName of allProductNames) {
-          const productSales = productMap[prodName] || [];
-          // Calculate Buy/Sell/Qty for sales of this day
-          const todaysProductRows = productSales.filter(r => r.date === filterCreatedAt && r.type !== "opening");
-          // Show actual product rows (opening + sales)
-          allRows = allRows.concat(todaysProductRows);
-          // Show the opening row as an opening row at the top (virtual, for display)
-          const openingRowsOnThisDay = productSales.filter((r) => r.type === "opening" && r.date === filterCreatedAt);
-          allRows = allRows.concat(openingRowsOnThisDay);
-        }
-
-        setProducts(allRows);
+        setProducts(productRows);
       } catch (err: any) {
         setError("Error loading products.");
         toast.error("Error loading products.");
@@ -454,15 +418,15 @@ export default function ProductAndRateLists() {
         setLoading(false);
       }
     }
-    loadProductsAndBalances();
+    loadProducts();
     return () => {
       ignore = true;
     };
     // eslint-disable-next-line
-  }, [filterCreatedAt]); // removed openingForm/openingLoading/balancestates for cleanup
+  }, [filterCreatedAt]);
 
-  // Only show sales for summary
-  const displayedProducts = products.filter((p) => !isBalanceProductRow(p) && p.type !== "opening");
+  // All sales for the summary
+  const displayedProducts = products;
 
   const totalQuantity = displayedProducts.reduce((acc, p) => acc + (isFinite(p.quantity) ? p.quantity : 0), 0);
   const totalBuy = displayedProducts.reduce((acc, p) => acc + (isFinite(p.totalBuy) ? p.totalBuy : 0), 0);
@@ -534,7 +498,6 @@ export default function ProductAndRateLists() {
             totalBuy: calculatedTotalBuy,
             totalSell: calculatedTotalSell,
             totalProfit: calculatedTotalProfit,
-         
           },
         ])
         .select()
@@ -562,7 +525,6 @@ export default function ProductAndRateLists() {
             totalSell: Number(data.totalSell) || 0,
             totalProfit: Number(data.totalProfit) || 0,
             created_at: data.created_at ? String(data.created_at) : undefined,
-            type: "sale",
           },
           ...prev,
         ]);
@@ -634,7 +596,6 @@ export default function ProductAndRateLists() {
   const productList = Array.from(
     new Set(
       products
-        .filter((p) => !isBalanceProductRow(p))
         .map((p) => p.name)
         .filter(Boolean)
     )
@@ -742,19 +703,12 @@ export default function ProductAndRateLists() {
                     });
 
                     let renderedRows: JSX.Element[] = [];
-                    let alreadyShown = new Set();
 
-                    // Only sale and opening rows for today
+                    // Only products for current filter date
                     const normalProducts = products.filter(
-                      (p) =>
-                        !isBalanceProductRow(p) &&
-                        (p.type === "sale" || p.type === "opening") &&
-                        p.date === filterCreatedAt
+                      (p) => p.date === filterCreatedAt
                     );
                     normalProducts.sort((a, b) => {
-                      // Opening rows first
-                      if (isOpeningRow(a) && !isOpeningRow(b)) return -1;
-                      if (!isOpeningRow(a) && isOpeningRow(b)) return 1;
                       if (a.name < b.name) return -1;
                       if (a.name > b.name) return 1;
                       if ((a.created_at || "") < (b.created_at || "")) return -1;
@@ -762,17 +716,16 @@ export default function ProductAndRateLists() {
                     });
 
                     for (const p of normalProducts) {
-                      let openingIndicator = isOpeningRow(p);
                       renderedRows.push(
                         <tr
-                          key={p.id+"_"+(openingIndicator ? "op" : "sale")}
-                          className={`${openingIndicator ? "bg-slate-700/20" : "border-b border-slate-700/50 hover:bg-slate-700/30"} transition`}
+                          key={p.id}
+                          className={"border-b border-slate-700/50 hover:bg-slate-700/30 transition"}
                         >
                           <td className="px-4 py-3 text-slate-300">
                             {p.created_at ? p.created_at.split("T")[0] : ""}
                           </td>
-                          <td className={`px-4 py-3 font-medium ${openingIndicator ? "text-amber-300" : "text-white"}`}>
-                            {openingIndicator ? "Opening: " + p.name : p.name}
+                          <td className="px-4 py-3 font-medium text-white">
+                            {p.name}
                           </td>
                           <td className="px-4 py-3 text-right text-slate-300">
                             {p.buyPrice}
@@ -791,7 +744,7 @@ export default function ProductAndRateLists() {
                           <td className="px-4 py-3 text-right text-slate-300">
                             {p.totalSell}
                           </td>
-                          <td className={`px-4 py-3 text-right font-semibold ${openingIndicator ? "text-cyan-300" : "text-emerald-400"}`}>
+                          <td className="px-4 py-3 text-right font-semibold text-emerald-400">
                             {p.totalProfit}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -992,3 +945,4 @@ export default function ProductAndRateLists() {
     </main>
   );
 }
+
