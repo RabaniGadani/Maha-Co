@@ -18,7 +18,7 @@ export function Header({ showAuthButtons = true, userEmail }: HeaderProps) {
           <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
             <span className="text-lg font-bold text-white">M</span>
           </div>
-          <span className="text-xl font-bold tracking-tight text-white">Maha LPG Co</span>
+          <span className="text-xl font-bold tracking-tight text-white">Hamood LPG Co</span>
         </Link>
 
         {/* User is logged in - show user info and Sign Out */}
