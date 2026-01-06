@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="py-6 border-t border-slate-800 bg-slate-900">
       <div className="container mx-auto px-4 flex flex-col items-center justify-center text-center">
         <div className="text-slate-500 text-sm">
-          &copy; {new Date().getFullYear()} Maha LPG Co. All rights reserved.
+          &copy; {new Date().getFullYear()} Hamood LPG Co. All rights reserved.
         </div>
         <div className="mt-2 text-xs text-slate-600">
           Developed by{' '}
