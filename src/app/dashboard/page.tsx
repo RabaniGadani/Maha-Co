@@ -20,13 +20,72 @@ type Product = {
   name: string;
   buyPrice: number;
   sellPrice: number;
-  quantity: number;
+  quantity: number; // Allow float for KG (e.g. 3.44)
   date: string;
   totalBuy: number;
   totalSell: number;
   totalProfit: number;
   created_at?: string;
 };
+
+interface DeleteDialogState {
+  productId: string | null;
+  productName: string | null;
+  open: boolean;
+}
+
+function DeleteProductModal({
+  open,
+  productName,
+  onCancel,
+  onConfirm,
+  loading
+}: {
+  open: boolean;
+  productName: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-xs w-full shadow-xl">
+        <div className="mb-4 flex flex-col items-center text-center">
+          <span className="text-3xl text-red-500 mb-2">⚠️</span>
+          <h2 className="text-lg font-bold text-white mb-2">Delete Product</h2>
+          <p className="text-slate-400 text-sm mb-0">
+            Are you sure you want to delete <span className="font-semibold text-red-300">{productName || 'this product'}</span>?
+            <br />
+            This action cannot be undone.
+          </p>
+        </div>
+        <div className="mt-6 flex gap-2">
+          <button
+            className="w-1/2 py-2 rounded-lg font-semibold bg-gray-600 hover:bg-gray-700 text-white transition"
+            onClick={onCancel}
+            disabled={loading}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="w-1/2 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition disabled:opacity-60"
+            onClick={onConfirm}
+            disabled={loading}
+            type="button"
+          >
+            {loading ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProductAndRateLists() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -39,6 +98,14 @@ export default function ProductAndRateLists() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Modal state for delete confirmation
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
+    productId: null,
+    productName: null,
+    open: false
+  });
 
   const [filterCreatedAt, setFilterCreatedAt] = useState<string>(() => {
     const today = new Date();
@@ -112,9 +179,16 @@ export default function ProductAndRateLists() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type } = e.target;
+
+    // Allow floats for quantity (for KG like 3.44)
     setForm((prev) => ({
       ...prev,
-      [name]: type === "number" ? (value === "" ? "" : Number(value)) : value,
+      [name]:
+        name === "quantity"
+          ? value === "" ? "" : parseFloat(value)
+          : type === "number"
+            ? (value === "" ? "" : Number(value))
+            : value,
     }));
   }
 
@@ -127,7 +201,7 @@ export default function ProductAndRateLists() {
       typeof form.buyPrice !== "number" || isNaN(form.buyPrice) ||
       typeof form.sellPrice !== "number" || isNaN(form.sellPrice) ||
       typeof form.quantity !== "number" || isNaN(form.quantity) ||
-      form.quantity < 1 ||
+      form.quantity <= 0 ||
       form.date.trim() === ""
     ) {
       setError("Please fill in all fields correctly.");
@@ -208,9 +282,65 @@ export default function ProductAndRateLists() {
     }));
   }
 
+  // Instead of deleting immediately, open modal
+  function openDeleteDialog(productId: string, productName: string) {
+    setDeleteDialog({
+      productId,
+      productName,
+      open: true,
+    });
+  }
+
+  function closeDeleteDialog() {
+    setDeleteDialog({
+      productId: null,
+      productName: null,
+      open: false,
+    });
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deleteDialog.productId) return;
+    setDeleting(deleteDialog.productId);
+    setError(null);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("Products")
+        .delete()
+        .eq("id", deleteDialog.productId);
+
+      if (deleteError) {
+        setError("Error deleting product: " + deleteError.message);
+        toast.error("Error deleting product: " + deleteError.message);
+      } else {
+        setProducts((prev) => prev.filter((p) => p.id !== deleteDialog.productId));
+        toast.success("Product deleted successfully.");
+      }
+      closeDeleteDialog();
+    } catch (err: any) {
+      setError("Error deleting product.");
+      toast.error("Error deleting product.");
+      closeDeleteDialog();
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  // Keep the old handleDelete for possible fallback, but update usages to openDeleteDialog
+
   return (
     <main className="min-h-screen bg-slate-900 flex flex-col p-2 sm:p-4 md:p-8">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={true} closeOnClick pauseOnFocusLoss draggable pauseOnHover theme="dark" />
+
+      {/* Delete Product Modal */}
+      <DeleteProductModal
+        open={deleteDialog.open}
+        productName={deleteDialog.productName}
+        onCancel={closeDeleteDialog}
+        onConfirm={handleDeleteConfirmed}
+        loading={deleting === deleteDialog.productId}
+      />
 
       {/* Header */}
       <header className="text-center mb-8">
@@ -254,13 +384,14 @@ export default function ProductAndRateLists() {
                   <th className="px-4 py-3 text-right font-semibold text-emerald-400">Qty</th>
                   <th className="px-4 py-3 text-right font-semibold text-emerald-400">T.Buy</th>
                   <th className="px-4 py-3 text-right font-semibold text-emerald-400">T.Sell</th>
-                  <th className="px-4 py-3 text-right font-semibold text-emerald-400 rounded-r-lg">Profit</th>
+                  <th className="px-4 py-3 text-right font-semibold text-emerald-400">Profit</th>
+                  <th className="px-4 py-3 text-center font-semibold text-emerald-400 rounded-r-lg">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-slate-500 py-12">
+                    <td colSpan={9} className="text-center text-slate-500 py-12">
                       {loading ? "Loading..." : "No rates available yet."}
                     </td>
                   </tr>
@@ -272,18 +403,33 @@ export default function ProductAndRateLists() {
                         <td className="px-4 py-3 text-white font-medium">{p.name}</td>
                         <td className="px-4 py-3 text-right text-slate-300">{p.buyPrice}</td>
                         <td className="px-4 py-3 text-right text-slate-300">{p.sellPrice}</td>
-                        <td className="px-4 py-3 text-right text-slate-300">{p.quantity}</td>
+                        <td className="px-4 py-3 text-right text-slate-300">
+                          {typeof p.quantity === "number" ? p.quantity.toFixed(2) : p.quantity}
+                        </td>
                         <td className="px-4 py-3 text-right text-slate-300">{p.totalBuy}</td>
                         <td className="px-4 py-3 text-right text-slate-300">{p.totalSell}</td>
                         <td className="px-4 py-3 text-right text-emerald-400 font-semibold">{p.totalProfit}</td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => openDeleteDialog(p.id, p.name)}
+                            className="bg-red-600 hover:bg-red-700 text-white font-semibold px-3 py-1 rounded transition disabled:opacity-60"
+                            disabled={deleting === p.id || loading}
+                            title="Delete Product"
+                          >
+                            {deleting === p.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     <tr className="bg-emerald-500/10">
                       <td colSpan={4} className="px-4 py-3 text-right text-white font-bold rounded-l-lg">Totals:</td>
-                      <td className="px-4 py-3 text-right text-white font-bold">{totalQuantity}</td>
+                      <td className="px-4 py-3 text-right text-white font-bold">
+                        {typeof totalQuantity === "number" ? totalQuantity.toFixed(2) : totalQuantity}
+                      </td>
                       <td className="px-4 py-3 text-right text-white font-bold">{totalBuy}</td>
                       <td className="px-4 py-3 text-right text-white font-bold">{totalSell}</td>
-                      <td className="px-4 py-3 text-right text-emerald-400 font-bold rounded-r-lg">{totalProfit}</td>
+                      <td className="px-4 py-3 text-right text-emerald-400 font-bold">{totalProfit}</td>
+                      <td className="px-4 py-3" />
                     </tr>
                   </>
                 )}
@@ -307,7 +453,9 @@ export default function ProductAndRateLists() {
             </div>
             <div className="bg-slate-700/50 rounded-xl p-4 text-center">
               <p className="text-slate-400 text-xs mb-1">Total Qty/ KG</p>
-              <p className="text-white text-xl font-bold">{totalQuantity}</p>
+              <p className="text-white text-xl font-bold">
+                {typeof totalQuantity === "number" ? totalQuantity.toFixed(2) : totalQuantity}
+              </p>
             </div>
           </div>
 
@@ -389,19 +537,19 @@ export default function ProductAndRateLists() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-slate-300" htmlFor="quantity">
-                Quantity/KG
+                Quantity/KG 
               </label>
               <input
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                 id="quantity"
                 name="quantity"
                 type="number"
-                min={1}
+                min={0}
                 value={form.quantity}
                 onChange={handleChange}
                 required
-                placeholder="1"
-                step="1"
+                placeholder="e."
+                step="any"
               />
             </div>
             {error && <div className="text-red-400 text-sm text-center">{error}</div>}
