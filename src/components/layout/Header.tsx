@@ -16,7 +16,7 @@ export function Header({ showAuthButtons = true, userEmail }: HeaderProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-3">
           <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
-            <span className="text-lg font-bold text-white">M</span>
+            <span className="text-lg font-bold text-white">H</span>
           </div>
           <span className="text-xl font-bold tracking-tight text-white">Hamood LPG Co</span>
         </Link>
