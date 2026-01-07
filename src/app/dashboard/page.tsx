@@ -1,20 +1,13 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Supabase constants from env
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY as string;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Supabase environment variables are missing.");
-}
-
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase browser client (handles auth cookies properly)
+const supabase = createClient();
 
 type Product = {
   id: string;
@@ -27,12 +20,17 @@ type Product = {
   totalSell: number;
   totalProfit: number;
   created_at?: string;
-  // No balance fields
+  user_id?: string; // Our user foreign key
 };
 
 interface DeleteDialogState {
   productId: string | null;
   productName: string | null;
+  open: boolean;
+}
+
+interface EditDialogState {
+  product: Product | null;
   open: boolean;
 }
 
@@ -90,14 +88,160 @@ function DeleteProductModal({
   );
 }
 
-// Balance row check removed: now always returns false
-function isBalanceProductRow(p: Product) {
+function isBalanceProductRow(_p: Product) {
   return false;
 }
 
-// Opening row check removed: now always returns false as all records are sales
-function isOpeningRow(p: Product) {
-  return false;
+// Edit Product Modal
+function EditProductModal({
+  open,
+  product,
+  onCancel,
+  onConfirm,
+  loading,
+}: {
+  open: boolean;
+  product: Product | null;
+  onCancel: () => void;
+  onConfirm: (updatedProduct: Partial<Product>) => void;
+  loading: boolean;
+}) {
+  const [editForm, setEditForm] = React.useState({
+    name: "",
+    buyPrice: 0,
+    sellPrice: 0,
+    quantity: 0,
+    date: "",
+  });
+
+  React.useEffect(() => {
+    if (product) {
+      setEditForm({
+        name: product.name,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
+        quantity: product.quantity,
+        date: product.date,
+      });
+    }
+  }, [product]);
+
+  if (!open || !product) return null;
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value, type } = e.target;
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: type === "number" ? (value === "" ? 0 : Number(value)) : value,
+    }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const totalBuy = editForm.buyPrice * editForm.quantity;
+    const totalSell = editForm.sellPrice * editForm.quantity;
+    const totalProfit = (editForm.sellPrice - editForm.buyPrice) * editForm.quantity;
+    onConfirm({
+      ...editForm,
+      totalBuy,
+      totalSell,
+      totalProfit,
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-xl mx-4">
+        <h2 className="text-lg font-bold text-white mb-4">Edit Product</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1 text-slate-300">Date</label>
+            <input
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              name="date"
+              type="date"
+              value={editForm.date}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-slate-300">Product Name</label>
+            <input
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              name="name"
+              type="text"
+              value={editForm.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-300">Buy Price</label>
+              <input
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                name="buyPrice"
+                type="number"
+                min={0}
+                step="any"
+                value={editForm.buyPrice}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-300">Sell Price</label>
+              <input
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                name="sellPrice"
+                type="number"
+                min={0}
+                step="any"
+                value={editForm.sellPrice}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-slate-300">Quantity/KG</label>
+            <input
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              name="quantity"
+              type="number"
+              min={0}
+              step="any"
+              value={editForm.quantity}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              className="w-1/2 py-2 rounded-lg font-semibold bg-gray-600 hover:bg-gray-700 text-white transition"
+              onClick={onCancel}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="w-1/2 py-2 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ------ LPG/PKR Bidirectional Conversion Calculator ---------
@@ -109,9 +253,7 @@ interface LpgConversionCalcState {
   result: string;
 }
 
-// Accept title as a prop for SSR hydration match
 function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }: { title?: string }) {
-  // Main state for calculator
   const [state, setState] = React.useState<LpgConversionCalcState>({
     sellPrice: "",
     amountPkr: "",
@@ -120,7 +262,6 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
     result: "-",
   });
 
-  // Handle input changes in fields
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type } = e.target;
     const parsedValue = value === "" ? "" : type === "number" ? Number(value) : value;
@@ -131,24 +272,20 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
     }));
   }
 
-  // Handle mode radio change
   function handleModeChange(e: React.ChangeEvent<HTMLInputElement>) {
     const newMode = e.target.value as "pkrToKg" | "kgToPkr";
     setState(prev => ({
       ...prev,
       mode: newMode,
-      // Reset the unrelated field on toggle for a clearer UI
       amountPkr: newMode === "pkrToKg" ? prev.amountPkr : "",
       quantityKg: newMode === "kgToPkr" ? prev.quantityKg : "",
       result: "-",
     }));
   }
 
-  // Perform calculation
   function handleCalculate() {
     const sellPrice = Number(state.sellPrice);
     if (state.mode === "pkrToKg") {
-      // Given amount in PKR, calculate how many KG or grams will be given
       const amount = Number(state.amountPkr);
       if (sellPrice > 0 && amount > 0) {
         const qtyKg = amount / sellPrice;
@@ -161,7 +298,6 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
         setState(prev => ({ ...prev, result: "-" }));
       }
     } else {
-      // Given quantity in KG, calculate total PKR needed
       const qty = Number(state.quantityKg);
       if (sellPrice > 0 && qty > 0) {
         const pkr = qty * sellPrice;
@@ -187,7 +323,6 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
 
   function getInputGroup() {
     if (state.mode === "pkrToKg") {
-      // PKR to KG/grams
       return (
         <>
           <div>
@@ -228,7 +363,6 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
         </>
       );
     } else {
-      // KG to PKR
       return (
         <>
           <div>
@@ -333,7 +467,7 @@ function LpgPkrConversionCalculator({ title = "Qty/Rate Conversion Calculator" }
 
 export default function ProductAndRateLists() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [form, setForm] = useState<Omit<Product, "id" | "totalBuy" | "totalSell" | "totalProfit" | "created_at">>({
+  const [form, setForm] = useState<Omit<Product, "id" | "totalBuy" | "totalSell" | "totalProfit" | "created_at" | "user_id">>({
     name: "",
     buyPrice: 0,
     sellPrice: 0,
@@ -341,47 +475,76 @@ export default function ProductAndRateLists() {
     date: "",
   });
 
-  // Sale Form states only
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Modal state for delete confirmation
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>("user");
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
     productId: null,
     productName: null,
     open: false,
   });
 
+  const [editDialog, setEditDialog] = useState<EditDialogState>({
+    product: null,
+    open: false,
+  });
+  const [editing, setEditing] = useState(false);
+
   const [filterCreatedAt, setFilterCreatedAt] = useState<string>(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
   });
 
-  React.useEffect(() => {
-    if (form.date && form.date !== filterCreatedAt) {
-      setFilterCreatedAt(form.date);
-    }
-  }, [form.date]);
-
-  // Helper: Get all product rows for a date, grouped by product
-  function groupProductsByNameRows(rows: Product[]) {
-    const map: { [key: string]: Product[] } = {};
-    for (const row of rows) {
-      // No balance rows to skip
-      if (!map[row.name]) map[row.name] = [];
-      map[row.name].push(row);
-    }
-    return map;
-  }
-
+  // Fetch current auth user and role (SSR can't use, so useEffect)
   useEffect(() => {
+    let cancelled = false;
+    async function getUser() {
+      const { data, error } = await supabase.auth.getUser();
+      if (!cancelled) {
+        if (error || !data?.user) {
+          setCurrentUser(null);
+          // Redirect to login if not authenticated
+          window.location.href = "/login";
+          return; // Don't set authChecked, keep showing loading while redirecting
+        }
+        setCurrentUser(data.user);
+        // Extract role from user_metadata (defaults to "user" if not set)
+        const role = data.user.user_metadata?.role || "user";
+        setUserRole(role);
+        setAuthChecked(true);
+      }
+    }
+    getUser();
+    return () => { cancelled = true; }
+  }, []);
+
+  // If user is not loaded yet, block further fetching
+  useEffect(() => {
+    if (!currentUser || !authChecked) return;
+
     let ignore = false;
     async function loadProducts() {
       setLoading(true);
       setError(null);
       try {
-        let query = supabase.from("Products").select("*");
+        let query = supabase
+          .from("Products")
+          .select("*");
+
+        // User-wise data fetching: each user sees only their own data
+        if (currentUser && typeof currentUser.id === "string") {
+          query = query.eq("user_id", currentUser.id);
+        } else {
+          setProducts([]);
+          setLoading(false);
+          return;
+        }
+
         if (filterCreatedAt) {
           const start = filterCreatedAt + "T00:00:00.000Z";
           const endDate = new Date(filterCreatedAt);
@@ -396,7 +559,6 @@ export default function ProductAndRateLists() {
           toast.error("Error loading products: " + fetchError.message);
         }
 
-        // Just map sale rows
         const productRows: Product[] = (data || []).map((row: any) => ({
           id: row.id ? String(row.id) : Date.now().toString() + "_" + Math.random(),
           name: row.name ?? "",
@@ -408,9 +570,10 @@ export default function ProductAndRateLists() {
           totalSell: Number(row.totalSell) || 0,
           totalProfit: Number(row.totalProfit) || 0,
           created_at: row.created_at ? String(row.created_at) : undefined,
+          user_id: row.user_id ? String(row.user_id) : undefined,
         }));
 
-        setProducts(productRows);
+        setProducts(productRows.filter((p) => !isBalanceProductRow(p)));
       } catch (err: any) {
         setError("Error loading products.");
         toast.error("Error loading products.");
@@ -419,13 +582,19 @@ export default function ProductAndRateLists() {
       }
     }
     loadProducts();
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true };
     // eslint-disable-next-line
-  }, [filterCreatedAt]);
+  }, [filterCreatedAt, currentUser, authChecked]);
 
-  // All sales for the summary
+  // Don't show anything until auth is checked
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-slate-900 flex items-center justify-center p-10">
+        <span className="text-slate-300 text-lg">Loading...</span>
+      </main>
+    );
+  }
+
   const displayedProducts = products;
 
   const totalQuantity = displayedProducts.reduce((acc, p) => acc + (isFinite(p.quantity) ? p.quantity : 0), 0);
@@ -486,6 +655,7 @@ export default function ProductAndRateLists() {
       (form.sellPrice - form.buyPrice) * form.quantity;
 
     try {
+      // Attach the user_id when creating product
       const { data, error: supabaseError } = await supabase
         .from("Products")
         .insert([
@@ -498,6 +668,7 @@ export default function ProductAndRateLists() {
             totalBuy: calculatedTotalBuy,
             totalSell: calculatedTotalSell,
             totalProfit: calculatedTotalProfit,
+            user_id: currentUser ? currentUser.id : null,
           },
         ])
         .select()
@@ -525,6 +696,7 @@ export default function ProductAndRateLists() {
             totalSell: Number(data.totalSell) || 0,
             totalProfit: Number(data.totalProfit) || 0,
             created_at: data.created_at ? String(data.created_at) : undefined,
+            user_id: data.user_id ? String(data.user_id) : undefined,
           },
           ...prev,
         ]);
@@ -552,10 +724,21 @@ export default function ProductAndRateLists() {
     setError(null);
 
     try {
+      // Only allow deleting rows owned by the current user
+      const userIdForDelete = currentUser ? currentUser.id : null;
+      if (!userIdForDelete) {
+        setError("No user, cannot delete.");
+        toast.error("No user, cannot delete.");
+        setDeleting(null);
+        closeDeleteDialog();
+        return;
+      }
+
       const { error: deleteError } = await supabase
         .from("Products")
         .delete()
-        .eq("id", deleteDialog.productId);
+        .eq("id", deleteDialog.productId)
+        .eq("user_id", userIdForDelete);
 
       if (deleteError) {
         setError("Error deleting product: " + deleteError.message);
@@ -592,10 +775,11 @@ export default function ProductAndRateLists() {
     });
   }
 
-  // For dropdown
+  // For dropdown (only show for the current user)
   const productList = Array.from(
     new Set(
       products
+        .filter((p) => !isBalanceProductRow(p))
         .map((p) => p.name)
         .filter(Boolean)
     )
@@ -630,7 +814,7 @@ export default function ProductAndRateLists() {
           <span className="text-3xl font-bold text-white">M</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-          Admin Dashboard
+          Dashboard
         </h1>
         <p className="text-slate-400">Manage your product rates with ease</p>
       </header>
@@ -696,26 +880,19 @@ export default function ProductAndRateLists() {
                   </tr>
                 ) : (
                   (() => {
-                    const grouped: { [product: string]: Product[] } = {};
-                    products.forEach((prod) => {
-                      if (!grouped[prod.name]) grouped[prod.name] = [];
-                      grouped[prod.name].push(prod);
-                    });
-
                     let renderedRows: JSX.Element[] = [];
-
-                    // Only products for current filter date
-                    const normalProducts = products.filter(
-                      (p) => p.date === filterCreatedAt
+                    // Only show rows for selected date
+                    const todaysProducts = products.filter(
+                      (p) => p.date === filterCreatedAt && !isBalanceProductRow(p)
                     );
-                    normalProducts.sort((a, b) => {
+                    todaysProducts.sort((a, b) => {
                       if (a.name < b.name) return -1;
                       if (a.name > b.name) return 1;
                       if ((a.created_at || "") < (b.created_at || "")) return -1;
                       return 0;
                     });
 
-                    for (const p of normalProducts) {
+                    for (const p of todaysProducts) {
                       renderedRows.push(
                         <tr
                           key={p.id}
@@ -945,4 +1122,3 @@ export default function ProductAndRateLists() {
     </main>
   );
 }
-
