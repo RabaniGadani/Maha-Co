@@ -811,7 +811,7 @@ export default function ProductAndRateLists() {
       {/* Header */}
       <header className="text-center mb-8">
         <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/30">
-          <span className="text-3xl font-bold text-white">M</span>
+          <span className="text-3xl font-bold text-white">H</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
           Dashboard
