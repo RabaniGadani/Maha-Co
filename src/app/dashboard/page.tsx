@@ -381,7 +381,7 @@ export default function ProductAndRateLists() {
       setLoading(true);
       setError(null);
       try {
-        let query = supabase.from("Products").select("*");
+        let query = supabase.from("products").select("*");
         if (filterCreatedAt) {
           const start = filterCreatedAt + "T00:00:00.000Z";
           const endDate = new Date(filterCreatedAt);
