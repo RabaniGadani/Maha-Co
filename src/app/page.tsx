@@ -12,7 +12,7 @@ export default function LandingPage() {
         <section className="container mx-auto px-4 py-20 text-center">
           {/* Logo */}
           <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-500/30">
-            <span className="text-4xl font-bold text-white">M</span>
+            <span className="text-4xl font-bold text-white">H</span>
           </div>
 
           {/* Title */}
