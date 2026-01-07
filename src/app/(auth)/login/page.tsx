@@ -14,7 +14,7 @@ export default function LoginPage() {
           <div className="text-center mb-8">
             <Link href="/" className="inline-block">
               <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/30">
-                <span className="text-3xl font-bold text-white">M</span>
+                <span className="text-3xl font-bold text-white">H</span>
               </div>
               <span className="text-2xl font-bold text-white">Hamood LPG Co</span>
             </Link>
